@@ -64,22 +64,28 @@ describe("vitePlugin — plugin metadata", () => {
   });
 });
 
-describe("vitePlugin — transform filter", () => {
-  it("returns null for .md files (only .mdx is transformed)", async () => {
-    const transform = vitePlugin().transform as TransformFn;
-    expect(await transform("# hello", "/path/to/file.md")).toBeNull();
-  });
+const NON_MDX_EXTENSIONS = [".md", ".ts", ".tsx", ".js", ".mdxc", ".MDX"] as const;
 
-  it("returns null for .ts files", async () => {
-    const transform = vitePlugin().transform as TransformFn;
-    expect(await transform("const x = 1;", "/path/to/file.ts")).toBeNull();
-  });
+describe("vitePlugin — transform filter", () => {
+  it.each(NON_MDX_EXTENSIONS)(
+    "returns null for %s files (only lowercase .mdx is transformed)",
+    async (ext) => {
+      const transform = vitePlugin().transform as TransformFn;
+      expect(await transform("# hello", `/path/to/file${ext}`)).toBeNull();
+    },
+  );
 
   it("returns a transform result for .mdx files", async () => {
     const transform = vitePlugin().transform as TransformFn;
     const result = await transform("# Hello", "/path/to/file.mdx");
     expect(result).not.toBeNull();
     expect(result?.code).toContain("MDXContent");
+  });
+
+  it("transform result map is null (no source map emitted)", async () => {
+    const transform = vitePlugin().transform as TransformFn;
+    const result = await transform("# Hello", "/path/to/file.mdx");
+    expect(result?.map).toBeNull();
   });
 });
 
@@ -121,5 +127,37 @@ describe("vitePlugin — cache behavior", () => {
     const code2 = chunkCode(await buildMdx(source, { cacheDir }));
 
     expect(code1).toBe(code2);
+  });
+});
+
+describe("vitePlugin — plugin options passthrough", () => {
+  it("forwards remarkPlugins to the compiler (GFM table support)", async () => {
+    const remarkGfm = (await import("remark-gfm")).default;
+    const tableSource = "| a | b |\n|---|---|\n| 1 | 2 |";
+    const cacheDir = join(tmpDir, "cache-gfm");
+    const code = chunkCode(await buildMdx(tableSource, { remarkPlugins: [remarkGfm], cacheDir }));
+    expect(code).toMatch(/"table"/);
+  });
+
+  it("compiles without GFM table support when no remarkPlugins are provided", async () => {
+    const tableSource = "| a | b |\n|---|---|\n| 1 | 2 |";
+    const cacheDir = join(tmpDir, "cache-no-gfm");
+    const code = chunkCode(await buildMdx(tableSource, { cacheDir }));
+    expect(code).not.toMatch(/"table"/);
+  });
+
+  it("uses the specified cacheDir for cache storage", async () => {
+    const { readdirSync, existsSync } = await import("node:fs");
+    const cacheDir = join(tmpDir, "custom-cache-dir");
+    await buildMdx("# Custom cache", { cacheDir });
+    expect(existsSync(cacheDir)).toBe(true);
+    expect(readdirSync(cacheDir).filter((f) => f.endsWith(".json")).length).toBeGreaterThan(0);
+  });
+});
+
+
+describe("vitePlugin — schema validation", () => {
+  it("throws synchronously when an unknown option key is passed", () => {
+    expect(() => vitePlugin({ unknownKey: true } as never)).toThrow();
   });
 });

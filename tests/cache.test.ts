@@ -94,6 +94,44 @@ describe("DiskCache — resilience", () => {
     writeFileSync(join(cacheDir, `${hash}.json`), "NOT_VALID_JSON{{{{");
     expect(cache.get("/file.mdx", "poisoned-content")).toBeNull();
   });
+
+  it("returns null for a valid JSON entry whose contentHash field does not match", () => {
+    const cacheDir = join(tmpDir, "cache");
+    const cache = new DiskCache(cacheDir);
+    const targetContent = "real-content";
+    const hash = contentHash(targetContent);
+    const tampered = JSON.stringify({ key: { contentHash: "000000000000000000000000", mtimeMs: 0, path: "/file.mdx" }, result: MOCK_RESULT });
+    writeFileSync(join(cacheDir, `${hash}.json`), tampered);
+    expect(cache.get("/file.mdx", targetContent)).toBeNull();
+  });
+});
+
+describe("DiskCache — content edge cases", () => {
+  it("caches and retrieves empty string content as a distinct key", () => {
+    const cache = new DiskCache(join(tmpDir, "cache"));
+    const emptyResult: CompileResult = { code: "empty-code", frontmatter: {} };
+    cache.set("/file.mdx", "", emptyResult);
+    expect(cache.get("/file.mdx", "")).toEqual(emptyResult);
+    expect(cache.get("/file.mdx", " ")).toBeNull();
+  });
+
+  it("multiple files with different paths and content coexist independently", () => {
+    const cache = new DiskCache(join(tmpDir, "cache"));
+    const resultA: CompileResult = { code: "code-a", frontmatter: { id: "a" } };
+    const resultB: CompileResult = { code: "code-b", frontmatter: { id: "b" } };
+    cache.set("/a.mdx", "content-a", resultA);
+    cache.set("/b.mdx", "content-b", resultB);
+    expect(cache.get("/a.mdx", "content-a")).toEqual(resultA);
+    expect(cache.get("/b.mdx", "content-b")).toEqual(resultB);
+  });
+
+  it("separate DiskCache instances sharing the same dir both read each other's entries", () => {
+    const cacheDir = join(tmpDir, "shared-cache");
+    const writer = new DiskCache(cacheDir);
+    writer.set("/shared.mdx", "shared-content", MOCK_RESULT);
+    const reader = new DiskCache(cacheDir);
+    expect(reader.get("/shared.mdx", "shared-content")).toEqual(MOCK_RESULT);
+  });
 });
 
 describe("compileFile — cache integration", () => {

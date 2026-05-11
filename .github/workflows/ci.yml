@@ -49,9 +49,7 @@ jobs:
         run: bun run test --coverage
 
       - name: scrub
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/bvasilenko/brand/main/docs/my/execution/tooling/pre-commit-scrub.sh \
-            | bash -s -- .
+        run: bash .github/scripts/scrub.sh .
 
       - name: build
         run: bun run build

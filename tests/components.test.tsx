@@ -29,12 +29,6 @@ describe("defaultComponents — block elements", () => {
   });
 });
 
-describe("defaultComponents — public API shape (spec §3.1)", () => {
-  it.each(ALL_REQUIRED_KEYS)("'%s' is exported as a callable component", (key) => {
-    expect(typeof defaultComponents[key]).toBe("function");
-  });
-});
-
 describe("defaultComponents — children propagation", () => {
   it("renders text children inside the element", () => {
     const { getByText } = render(<defaultComponents.p>hello world</defaultComponents.p>);
@@ -50,8 +44,9 @@ describe("defaultComponents — children propagation", () => {
     expect(getByText("list item")).toBeTruthy();
   });
 
-  it("renders without crashing when children is omitted", () => {
-    expect(() => render(<defaultComponents.p />)).not.toThrow();
+  it.each(ALL_REQUIRED_KEYS)("%s renders without throwing when children is omitted", (key) => {
+    const Component = defaultComponents[key];
+    expect(() => render(<Component />)).not.toThrow();
   });
 });
 
@@ -75,5 +70,20 @@ describe("defaultComponents — prop forwarding", () => {
       <defaultComponents.p data-testid="my-para">text</defaultComponents.p>,
     );
     expect(container.querySelector('[data-testid="my-para"]')).toBeTruthy();
+  });
+
+  it("forwards href attribute on the anchor element", () => {
+    const { container } = render(
+      <defaultComponents.a href="https://example.com">link</defaultComponents.a>,
+    );
+    expect(container.querySelector('a[href="https://example.com"]')).toBeTruthy();
+  });
+
+  it.each(ALL_REQUIRED_KEYS)("%s forwards arbitrary extra props to the rendered element", (key) => {
+    const Component = defaultComponents[key];
+    const { container } = render(
+      <Component data-extra="sentinel">content</Component>,
+    );
+    expect(container.querySelector('[data-extra="sentinel"]')).toBeTruthy();
   });
 });

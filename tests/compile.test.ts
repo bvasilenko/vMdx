@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 bvasilenko
-import { describe, it, expect, beforeAll } from "vitest";
-import { compile } from "../src/core/compile.js";
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { compile, compileFile } from "../src/core/compile.js";
 import type { CompileResult } from "../src/types.js";
 
 const TABLE_MARKDOWN = "| col1 | col2 |\n|------|------|\n| a    | b    |";
@@ -114,5 +117,100 @@ describe("compile — GFM extension behavior", () => {
 describe("compile — config validation", () => {
   it("rejects unknown config keys before compilation (strict schema)", async () => {
     await expect(compile("# Hi", { unknownKey: true } as never)).rejects.toThrow();
+  });
+
+  it("accepts explicit undefined opts identically to no opts", async () => {
+    const { code, frontmatter } = await compile("# Hi", undefined);
+    expect(typeof code).toBe("string");
+    expect(frontmatter).toEqual({});
+  });
+
+  it("accepts explicit outputFormat: 'function-body' and produces function-body output", async () => {
+    const { code } = await compile("# Explicit format", { outputFormat: "function-body" });
+    expect(code).toContain("return");
+    expect(code).not.toMatch(/^import\s/m);
+  });
+});
+
+describe("compile — rehypePlugins passthrough", () => {
+  it("does not inject sentinel attribute without a rehype plugin", async () => {
+    const { code } = await compile("# Heading");
+    expect(code).not.toContain("data-vmdx-sentinel");
+  });
+
+  it("applies a custom rehype plugin to the compiled output", async () => {
+    function sentinelPlugin() {
+      return function (tree: { children: Array<{ type: string; tagName?: string; properties?: Record<string, unknown> }> }) {
+        for (const node of tree.children) {
+          if (node.type === "element" && node.tagName?.startsWith("h")) {
+            node.properties = { ...node.properties, "data-vmdx-sentinel": "1" };
+          }
+        }
+      };
+    }
+    const { code } = await compile("# My Heading", { rehypePlugins: [sentinelPlugin] });
+    expect(code).toContain("data-vmdx-sentinel");
+  });
+});
+
+let compileTmpDir: string;
+
+beforeEach(() => {
+  compileTmpDir = join(tmpdir(), `vmdx-compile-test-${Date.now()}`);
+  mkdirSync(compileTmpDir, { recursive: true });
+});
+
+afterEach(() => {
+  rmSync(compileTmpDir, { recursive: true, force: true });
+});
+
+describe("compileFile — output format variants", () => {
+  it("returns function-body format by default (no outputFormat option)", async () => {
+    const filePath = join(compileTmpDir, "default.mdx");
+    const cacheDir = join(compileTmpDir, "cache");
+    writeFileSync(filePath, "# Default format");
+    const { code } = await compileFile(filePath, { cacheDir });
+    expect(code).toContain("return");
+    expect(code).not.toMatch(/^import\s/m);
+  });
+
+  it("returns program format when outputFormat: 'program' is specified", async () => {
+    const filePath = join(compileTmpDir, "program.mdx");
+    const cacheDir = join(compileTmpDir, "cache");
+    writeFileSync(filePath, "# Program format");
+    const { code } = await compileFile(filePath, { cacheDir, outputFormat: "program" });
+    expect(code).toMatch(/export default/);
+    expect(code).not.toMatch(/^return\s/m);
+  });
+
+  it("frontmatter is extracted and returned from compileFile", async () => {
+    const filePath = join(compileTmpDir, "fm.mdx");
+    const cacheDir = join(compileTmpDir, "cache");
+    writeFileSync(filePath, "---\ntitle: File FM\nauthor: bvasilenko\n---\n# Body");
+    const { frontmatter } = await compileFile(filePath, { cacheDir });
+    expect(frontmatter).toMatchObject({ title: "File FM", author: "bvasilenko" });
+  });
+
+  it("rejects unknown config keys passed to compileFile", async () => {
+    const filePath = join(compileTmpDir, "strict.mdx");
+    writeFileSync(filePath, "# Strict");
+    await expect(
+      compileFile(filePath, { unknownKey: true } as never),
+    ).rejects.toThrow();
+  });
+
+  it("compileFile without opts resolves using all default settings", async () => {
+    const filePath = join(compileTmpDir, "no-opts.mdx");
+    writeFileSync(filePath, "# No opts");
+    const { code, frontmatter } = await compileFile(filePath);
+    expect(code).toContain("MDXContent");
+    expect(frontmatter).toEqual({});
+  });
+});
+
+describe("compileFile — error paths", () => {
+  it("rejects when the referenced file does not exist", async () => {
+    const nonExistent = join(compileTmpDir, "does-not-exist.mdx");
+    await expect(compileFile(nonExistent)).rejects.toThrow();
   });
 });

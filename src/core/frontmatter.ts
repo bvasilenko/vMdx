@@ -19,6 +19,6 @@ export function parseFrontmatter<T extends Record<string, unknown>>(
   const { content, data } = matter(source, GRAY_MATTER_OPTIONS);
   return {
     content,
-    frontmatter: (data ?? {}) as Frontmatter<T>,
+    frontmatter: data as Frontmatter<T>,
   };
 }

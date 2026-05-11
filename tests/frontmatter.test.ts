@@ -10,6 +10,12 @@ describe("parseFrontmatter — sources without frontmatter", () => {
     expect(content.trim()).toBe("# Hello");
   });
 
+  it("returns empty frontmatter and empty content for empty string", () => {
+    const { frontmatter, content } = parseFrontmatter("");
+    expect(frontmatter).toEqual({});
+    expect(content).toBe("");
+  });
+
   it("returns empty frontmatter for whitespace-only source", () => {
     const { frontmatter } = parseFrontmatter("   \n  ");
     expect(frontmatter).toEqual({});
@@ -63,6 +69,29 @@ describe("parseFrontmatter — YAML frontmatter", () => {
   });
 });
 
+describe("parseFrontmatter — YAML null-valued and comment-only frontmatter blocks", () => {
+  it("YAML null keyword at document root returns empty frontmatter and preserves body content", () => {
+    const source = "---\nnull\n---\nbody";
+    const { frontmatter, content } = parseFrontmatter(source);
+    expect(frontmatter).toEqual({});
+    expect(content.trim()).toBe("body");
+  });
+
+  it("YAML tilde null alias at document root returns empty frontmatter and preserves body content", () => {
+    const source = "---\n~\n---\nbody";
+    const { frontmatter, content } = parseFrontmatter(source);
+    expect(frontmatter).toEqual({});
+    expect(content.trim()).toBe("body");
+  });
+
+  it("YAML comment-only frontmatter block returns empty frontmatter and preserves body content", () => {
+    const source = "---\n# metadata intentionally cleared\n---\nbody";
+    const { frontmatter, content } = parseFrontmatter(source);
+    expect(frontmatter).toEqual({});
+    expect(content.trim()).toBe("body");
+  });
+});
+
 describe("parseFrontmatter — TOML frontmatter", () => {
   it("parses TOML string and number values via the ---toml delimiter", () => {
     const source = '---toml\ntitle = "TOML Post"\ncount = 42\n---\nbody text';
@@ -75,5 +104,44 @@ describe("parseFrontmatter — TOML frontmatter", () => {
     const source = '---toml\npublished = true\ntags = ["mdx", "toml"]\n---\n';
     const { frontmatter } = parseFrontmatter(source);
     expect(frontmatter).toMatchObject({ published: true, tags: ["mdx", "toml"] });
+  });
+
+  it("parses TOML nested tables", () => {
+    const source = '---toml\n[meta]\nauthor = "bvasilenko"\n[meta.links]\nhome = "https://example.com"\n---\nbody';
+    const { frontmatter } = parseFrontmatter(source);
+    expect(frontmatter).toMatchObject({
+      meta: { author: "bvasilenko", links: { home: "https://example.com" } },
+    });
+  });
+});
+
+describe("parseFrontmatter — type coercion behavior", () => {
+  it("coerces ISO 8601 date strings in YAML to Date objects", () => {
+    const source = "---\ndate: 2026-01-15\n---\nbody";
+    const { frontmatter } = parseFrontmatter(source);
+    expect(frontmatter.date).toBeInstanceOf(Date);
+    expect((frontmatter.date as Date).toISOString()).toMatch(/^2026-01-15/);
+  });
+
+  it("preserves Unicode string values in YAML without corruption", () => {
+    const source = "---\ntitle: 日本語テスト\nauthor: бвасіленко\n---\nbody";
+    const { frontmatter } = parseFrontmatter(source);
+    expect(frontmatter).toMatchObject({ title: "日本語テスト", author: "бвасіленко" });
+  });
+
+  it("preserves Unicode string values in TOML without corruption", () => {
+    const source = '---toml\ntitle = "日本語テスト"\n---\nbody';
+    const { frontmatter } = parseFrontmatter(source);
+    expect(frontmatter).toMatchObject({ title: "日本語テスト" });
+  });
+});
+
+describe("parseFrontmatter — malformed frontmatter", () => {
+  it("throws a parse error for malformed YAML frontmatter", () => {
+    expect(() => parseFrontmatter("---\n: bad: yaml:\n---\nbody")).toThrow();
+  });
+
+  it("throws a parse error for malformed TOML frontmatter", () => {
+    expect(() => parseFrontmatter("---toml\n[invalid = broken syntax\n---\nbody")).toThrow();
   });
 });
