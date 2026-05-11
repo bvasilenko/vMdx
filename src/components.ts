@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 bvasilenko
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { Box } from "@booga/vui";
 

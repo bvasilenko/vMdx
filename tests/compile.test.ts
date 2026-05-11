@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 bvasilenko
 import { describe, it, expect, beforeAll } from "vitest";
 import { compile } from "../src/core/compile.js";
 import type { CompileResult } from "../src/types.js";

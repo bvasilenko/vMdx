@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 bvasilenko
 import { compile as mdxCompile } from "@mdx-js/mdx";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";

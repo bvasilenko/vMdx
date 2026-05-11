@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 bvasilenko
 import matter from "gray-matter";
 import * as toml from "@iarna/toml";
 import type { Frontmatter } from "../types.js";

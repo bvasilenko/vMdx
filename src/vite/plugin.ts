@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 bvasilenko
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 import { MdxConfigSchema, type MdxConfig } from "../config.js";
