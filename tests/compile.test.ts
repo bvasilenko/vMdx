@@ -56,6 +56,12 @@ describe("compile — program output format", () => {
   it("code does not contain function-body return pattern", () => {
     expect(code).not.toMatch(/^return\s/m);
   });
+
+  it("returns non-empty frontmatter alongside program-format code", async () => {
+    const { code: progCode, frontmatter } = await compile("---\ntitle: ProgramFM\n---\n# Body", { outputFormat: "program" });
+    expect(frontmatter).toMatchObject({ title: "ProgramFM" });
+    expect(progCode).toMatch(/export default/);
+  });
 });
 
 describe("compile — frontmatter extraction", () => {

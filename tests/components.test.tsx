@@ -87,3 +87,20 @@ describe("defaultComponents — prop forwarding", () => {
     expect(container.querySelector('[data-extra="sentinel"]')).toBeTruthy();
   });
 });
+
+describe("defaultComponents — completeness invariant", () => {
+  it("exports exactly 14 component entries — no more, no less", () => {
+    const keys = Object.keys(defaultComponents);
+    expect(keys).toHaveLength(14);
+  });
+
+  it("contains no unexpected keys beyond the spec-defined set", () => {
+    const specKeys = new Set([
+      "h1", "h2", "h3", "h4", "h5", "h6",
+      "p", "ul", "ol", "li", "code", "pre", "blockquote", "a",
+    ]);
+    for (const key of Object.keys(defaultComponents)) {
+      expect(specKeys.has(key)).toBe(true);
+    }
+  });
+});

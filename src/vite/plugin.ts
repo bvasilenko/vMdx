@@ -6,6 +6,13 @@ import { MdxConfigSchema, type MdxConfig } from "../config.js";
 import { DiskCache } from "../cache/index.js";
 import { compile } from "../core/compile.js";
 
+const VITE_PASSTHROUGH_QUERIES = new Set(["raw", "url"]);
+
+function isMdxModule(id: string): boolean {
+  const [path, query] = id.split("?", 2) as [string, string | undefined];
+  return path.endsWith(".mdx") && !VITE_PASSTHROUGH_QUERIES.has(query ?? "");
+}
+
 export function vitePlugin(opts?: Partial<MdxConfig>): Plugin {
   const config = MdxConfigSchema.parse(opts ?? {});
   const cache = new DiskCache(config.cacheDir);
@@ -15,9 +22,9 @@ export function vitePlugin(opts?: Partial<MdxConfig>): Plugin {
     enforce: "pre",
 
     async transform(code, id) {
-      if (!id.endsWith(".mdx")) return null;
+      if (!isMdxModule(id)) return null;
 
-      const abs = resolve(id);
+      const abs = resolve(id.split("?")[0]);
       const cached = cache.get(abs, code);
       if (cached) return { code: cached.code, map: null };
 

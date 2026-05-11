@@ -64,27 +64,40 @@ describe("vitePlugin — plugin metadata", () => {
   });
 });
 
-const NON_MDX_EXTENSIONS = [".md", ".ts", ".tsx", ".js", ".mdxc", ".MDX"] as const;
+const TRANSFORM_IDS = [
+  "/path/to/file.mdx",
+  "/path/to/file.mdx?t=12345",
+  "/path/to/file.mdx?t=1&v=2",
+  "/path/to/file.mdx?",
+  "/path/to/file.mdx?raw=1",
+] as const;
+
+const SKIP_IDS = [
+  "/path/to/file.md",
+  "/path/to/file.ts",
+  "/path/to/file.tsx",
+  "/path/to/file.js",
+  "/path/to/file.mdxc",
+  "/path/to/file.MDX",
+  "/path/to/file.mdx?raw",
+  "/path/to/file.mdx?url",
+] as const;
 
 describe("vitePlugin — transform filter", () => {
-  it.each(NON_MDX_EXTENSIONS)(
-    "returns null for %s files (only lowercase .mdx is transformed)",
-    async (ext) => {
-      const transform = vitePlugin().transform as TransformFn;
-      expect(await transform("# hello", `/path/to/file${ext}`)).toBeNull();
-    },
-  );
-
-  it("returns a transform result for .mdx files", async () => {
+  it.each(TRANSFORM_IDS)("transforms %s", async (id) => {
     const transform = vitePlugin().transform as TransformFn;
-    const result = await transform("# Hello", "/path/to/file.mdx");
-    expect(result).not.toBeNull();
-    expect(result?.code).toContain("MDXContent");
+    expect(await transform("# hello", id)).not.toBeNull();
   });
 
-  it("transform result map is null (no source map emitted)", async () => {
+  it.each(SKIP_IDS)("returns null for %s", async (id) => {
+    const transform = vitePlugin().transform as TransformFn;
+    expect(await transform("# hello", id)).toBeNull();
+  });
+
+  it("transform output contains compiled code and no source map", async () => {
     const transform = vitePlugin().transform as TransformFn;
     const result = await transform("# Hello", "/path/to/file.mdx");
+    expect(result?.code).toContain("MDXContent");
     expect(result?.map).toBeNull();
   });
 });
