@@ -46,7 +46,7 @@ jobs:
         run: bun run lint
 
       - name: test
-        run: bun run test --coverage
+        run: bun run test
 
       - name: scrub
         run: bash .github/scripts/scrub.sh .
